@@ -92,8 +92,15 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       metadata: {
-        type: DataTypes.JSON,
+        type: DataTypes.TEXT,  // stored as JSON string for MySQL 5.x compatibility
         allowNull: true,
+        get() {
+          const v = this.getDataValue('metadata');
+          try { return v ? JSON.parse(v) : null; } catch { return null; }
+        },
+        set(v) {
+          this.setDataValue('metadata', v ? JSON.stringify(v) : null);
+        },
       },
     },
     {

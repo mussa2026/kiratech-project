@@ -67,9 +67,16 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       attachments: {
-        type: DataTypes.JSON,
+        type: DataTypes.TEXT,  // stored as JSON string for MySQL 5.x compatibility
         allowNull: true,
-        defaultValue: [],
+        defaultValue: '[]',
+        get() {
+          const v = this.getDataValue('attachments');
+          try { return v ? JSON.parse(v) : []; } catch { return []; }
+        },
+        set(v) {
+          this.setDataValue('attachments', JSON.stringify(v || []));
+        },
       },
       technicianNotes: {
         type: DataTypes.TEXT,

@@ -24,9 +24,16 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       skills: {
-        type: DataTypes.JSON,
+        type: DataTypes.TEXT,  // stored as JSON string for MySQL 5.x compatibility
         allowNull: true,
-        defaultValue: [],
+        defaultValue: '[]',
+        get() {
+          const v = this.getDataValue('skills');
+          try { return v ? JSON.parse(v) : []; } catch { return []; }
+        },
+        set(v) {
+          this.setDataValue('skills', JSON.stringify(v || []));
+        },
       },
       bio: {
         type: DataTypes.TEXT,
