@@ -8,7 +8,13 @@ const path      = require('path');
 const crypto    = require('crypto');
 const validator = require('validator');
 const swaggerUi  = require('swagger-ui-express');
-const swaggerSpec = require('./docs/swagger');
+// Load Swagger spec safely — don't crash if docs folder is missing
+let swaggerSpec = null;
+try {
+  swaggerSpec = require('./docs/swagger');
+} catch (e) {
+  console.warn('⚠️  Swagger docs not available:', e.message);
+}
 
 const { sequelize } = require('./models');
 const authRoutes         = require('./routes/auth');
@@ -154,8 +160,8 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, 'uploads')));
 
-// ─── 12. Swagger API Docs — restrict in production ────────────────────────────
-if (!isProd) {
+// ─── 12. Swagger API Docs — only if spec loaded and not production ────────────
+if (!isProd && swaggerSpec) {
   app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     customSiteTitle: 'KIRATECH API Docs',
     customCss: '.swagger-ui .topbar { background-color: #1d4ed8; } .swagger-ui .topbar .download-url-wrapper { display: none; }',
