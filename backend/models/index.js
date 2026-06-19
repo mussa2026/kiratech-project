@@ -18,11 +18,18 @@ const sequelize = new Sequelize(
       idle: 10000,
     },
     // Enable SSL for production databases (PlanetScale, Aiven, etc.)
-    ...(isProd && {
+    // Disable SSL if DB_SSL=false is set (for freesqldatabase.com and similar)
+    ...(isProd && process.env.DB_SSL !== 'false' && {
       dialectOptions: {
         ssl: {
-          rejectUnauthorized: true,
+          rejectUnauthorized: false,  // Accept self-signed certs
         },
+        connectTimeout: 60000,
+      },
+    }),
+    // No SSL mode for databases that don't support it
+    ...(isProd && process.env.DB_SSL === 'false' && {
+      dialectOptions: {
         connectTimeout: 60000,
       },
     }),
