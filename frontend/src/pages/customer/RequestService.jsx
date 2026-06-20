@@ -501,7 +501,8 @@ export default function RequestService() {
                       : 'border-amber-200 dark:border-amber-800/40 hover:border-amber-400'
                   }`}>
                   <p className="font-semibold text-gray-900 dark:text-white">{svc.name}</p>
-                  {svc.basePrice > 0 && <p className="text-xs text-amber-500 mt-0.5">From TZS {Number(svc.basePrice).toLocaleString()} — Premium</p>}
+                  {svc.basePrice > 0 && <p className="text-xs text-amber-500 mt-0.5">From TZS {Number(svc.basePrice).toLocaleString()} — ⭐ Premium</p>}
+                  {svc.basePrice === 0 && <p className="text-xs text-amber-500 mt-0.5">⭐ Premium — Included</p>}
                 </button>
               ))}
             </div>

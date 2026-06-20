@@ -263,7 +263,7 @@ router.get('/requests/:id', async (req, res) => {
  *                 request: { $ref: '#/components/schemas/ServiceRequest' }
  *                 message: { type: string }
  *       403:
- *         description: Premium service requires premium subscription
+ *         description: Not authorized
  *       404:
  *         description: Service not found or inactive
  *       422:
@@ -285,9 +285,6 @@ router.post(
       const { serviceId, title, description, priority, location, preferredDate, preferredTime } = req.body;
       const service = await Service.findByPk(serviceId);
       if (!service || !service.isActive) return res.status(404).json({ error: 'Service not found or inactive' });
-      if (service.category === 'premium' && req.user.subscriptionType !== 'premium') {
-        return res.status(403).json({ error: 'This service requires a premium subscription' });
-      }
       const request = await ServiceRequest.create({
         userId: req.user.id, serviceId, title, description,
         priority: priority || 'medium', location, preferredDate, preferredTime, status: 'pending',
