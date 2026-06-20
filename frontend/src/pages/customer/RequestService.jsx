@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { PhotoIcon, XMarkIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { PhotoIcon, XMarkIcon, CheckCircleIcon, MapPinIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 // ─── Service-specific sub-types ────────────────────────────────────────────────
 const SERVICE_SUBTYPES = {
@@ -138,6 +138,203 @@ const COMMON_ISSUES = {
   ],
 };
 
+// ─── Location Picker component ────────────────────────────────────────────────
+function LocationPicker({ value, onChange, onCoords }) {
+  const [detecting, setDetecting]   = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSug, setShowSug]       = useState(false);
+  const [coords, setCoords]         = useState(null);
+  const debounceRef = useRef(null);
+  const wrapperRef  = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowSug(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ── Detect GPS location and reverse-geocode via OpenStreetMap Nominatim ─────
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    setDetecting(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setCoords({ lat, lng });
+        onCoords?.({ lat, lng });
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          const data = await res.json();
+          if (data?.display_name) {
+            // Build a short, readable address
+            const a = data.address || {};
+            const parts = [
+              a.road || a.pedestrian || a.neighbourhood,
+              a.suburb || a.quarter,
+              a.city || a.town || a.village || a.county,
+              a.state,
+              a.country,
+            ].filter(Boolean);
+            const address = parts.length >= 2 ? parts.join(', ') : data.display_name;
+            onChange(address);
+            toast.success('📍 Location detected!');
+          } else {
+            onChange(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+            toast.success('📍 GPS coordinates captured');
+          }
+        } catch {
+          onChange(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+          toast.success('📍 GPS coordinates captured');
+        }
+        setDetecting(false);
+      },
+      (err) => {
+        setDetecting(false);
+        const msgs = {
+          1: 'Location access denied. Please allow location in your browser settings.',
+          2: 'Location unavailable. Please type your address manually.',
+          3: 'Location request timed out. Please try again.',
+        };
+        toast.error(msgs[err.code] || 'Could not detect location');
+      },
+      { timeout: 10000, maximumAge: 60000, enableHighAccuracy: true }
+    );
+  };
+
+  // ── Address autocomplete via Nominatim search ─────────────────────────────
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    onChange(val);
+    clearTimeout(debounceRef.current);
+    if (val.length < 3) { setSuggestions([]); setShowSug(false); return; }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=5&addressdetails=1&countrycodes=tz,ke,ug,rw,tz`,
+          { headers: { 'Accept-Language': 'en' } }
+        );
+        const data = await res.json();
+        setSuggestions(data);
+        setShowSug(data.length > 0);
+      } catch { /* silent fail */ }
+    }, 400);
+  };
+
+  const selectSuggestion = (item) => {
+    const a = item.address || {};
+    const parts = [
+      a.road || a.pedestrian || a.neighbourhood,
+      a.suburb || a.quarter,
+      a.city || a.town || a.village || a.county,
+      a.state,
+      a.country,
+    ].filter(Boolean);
+    const address = parts.length >= 2 ? parts.join(', ') : item.display_name;
+    onChange(address);
+    setCoords({ lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
+    onCoords?.({ lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
+    setSuggestions([]);
+    setShowSug(false);
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="label flex items-center gap-1.5">
+        <MapPinIcon className="h-4 w-4 text-blue-500" />
+        Location / Address
+        <span className="text-slate-400 font-normal">(where is the device?)</span>
+      </label>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            className="input pr-10"
+            placeholder="Type address or click 📍 to auto-detect…"
+            value={value}
+            onChange={handleInputChange}
+            onFocus={() => suggestions.length > 0 && setShowSug(true)}
+            autoComplete="off"
+          />
+          {value && (
+            <button type="button" onClick={() => { onChange(''); setSuggestions([]); setShowSug(false); setCoords(null); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-400 transition-colors">
+              <XMarkIcon className="h-4 w-4" />
+            </button>
+          )}
+          {/* Autocomplete dropdown */}
+          {showSug && suggestions.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-blue-200 dark:border-slate-600 rounded-xl shadow-xl overflow-hidden">
+              {suggestions.map((item, i) => {
+                const a = item.address || {};
+                const main = a.road || a.pedestrian || a.neighbourhood || a.suburb || item.name || '';
+                const sub  = [a.city || a.town || a.village, a.state, a.country].filter(Boolean).join(', ');
+                return (
+                  <button key={i} type="button" onMouseDown={() => selectSuggestion(item)}
+                    className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors border-b border-blue-50 dark:border-slate-700 last:border-0">
+                    <div className="flex items-start gap-2">
+                      <MapPinIcon className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{main || 'Location'}</p>
+                        <p className="text-xs text-slate-400 truncate">{sub}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+              <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-700/50 text-center">
+                <span className="text-xs text-slate-400">Powered by OpenStreetMap</span>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* GPS detect button */}
+        <button
+          type="button"
+          onClick={detectLocation}
+          disabled={detecting}
+          title="Detect my current location"
+          className="flex-shrink-0 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white rounded-xl transition-all flex items-center gap-2 text-sm font-semibold shadow-cyber-sm active:scale-95"
+        >
+          {detecting
+            ? <ArrowPathIcon className="h-4 w-4 animate-spin" />
+            : <MapPinIcon className="h-4 w-4" />
+          }
+          {detecting ? 'Detecting…' : 'Detect'}
+        </button>
+      </div>
+      {/* GPS coordinates badge */}
+      {coords && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg px-2 py-0.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+            GPS: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+          </span>
+          <a
+            href={`https://www.google.com/maps?q=${coords.lat},${coords.lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-500 hover:text-blue-400 underline"
+          >
+            View on Google Maps ↗
+          </a>
+        </div>
+      )}
+      <p className="text-xs text-slate-400 mt-1">
+        💡 Click <strong>Detect</strong> for GPS auto-fill, or type and pick from suggestions
+      </p>
+    </div>
+  );
+}
+
 // ─── Photo upload component ────────────────────────────────────────────────────
 function PhotoUpload({ photos, onAdd, onRemove }) {
   const inputRef = useRef();
@@ -198,6 +395,7 @@ export default function RequestService() {
   const [form, setForm] = useState({
     serviceId:'', title:'', description:'', priority:'medium', location:'', preferredDate:'', preferredTime:'',
   });
+  const [locationCoords, setLocationCoords] = useState(null);
   const navigate = useNavigate();
 
   const standardServices = services.filter(s => s.category === 'standard');
@@ -244,6 +442,7 @@ export default function RequestService() {
         title: form.title || autoTitle,
         description: fullDesc,
         attachments: photos.map(p => p.preview), // base64 previews
+        ...(locationCoords && { locationLat: locationCoords.lat, locationLng: locationCoords.lng }),
       };
 
       const { data } = await api.post('/user/requests', payload);
@@ -436,23 +635,21 @@ export default function RequestService() {
             onRemove={i => setPhotos(prev => prev.filter((_,idx) => idx !== i))}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="label">Priority</label>
-              <select className="input" value={form.priority} onChange={e => setForm({...form, priority:e.target.value})}>
-                <option value="low">🟢 Low</option>
-                <option value="medium">🔵 Medium</option>
-                <option value="high">🟠 High</option>
-                <option value="urgent">🔴 Urgent</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Location / Address</label>
-              <input type="text" className="input" placeholder="Where is the device located?"
-                value={form.location} onChange={e => setForm({...form, location:e.target.value})} />
-            </div>
+          <div>
+            <label className="label">Priority</label>
+            <select className="input" value={form.priority} onChange={e => setForm({...form, priority:e.target.value})}>
+              <option value="low">🟢 Low</option>
+              <option value="medium">🔵 Medium</option>
+              <option value="high">🟠 High</option>
+              <option value="urgent">🔴 Urgent</option>
+            </select>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <LocationPicker
+            value={form.location}
+            onChange={val => setForm(f => ({ ...f, location: val }))}
+            onCoords={c => setLocationCoords(c)}
+          />          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="label">Preferred Date</label>
               <input type="date" className="input" min={new Date().toISOString().split('T')[0]}
