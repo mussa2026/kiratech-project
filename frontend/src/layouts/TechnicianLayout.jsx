@@ -31,13 +31,13 @@ export default function TechnicianLayout() {
     <div className="flex flex-col h-full bg-white dark:bg-gray-900 transition-colors duration-300">
       {/* Brand */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 dark:border-gray-700/60">
-        <div className="flex items-center gap-2">
-          <KiratechLogo size={28} showText={false} />
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <KiratechLogo size={28} showText={false} linkTo={false} />
           <div>
             <p className="font-bold text-gray-900 dark:text-gray-100 text-sm leading-none">KIRATECH</p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Technician Portal</p>
           </div>
-        </div>
+        </Link>
         <ThemeToggle />
       </div>
 

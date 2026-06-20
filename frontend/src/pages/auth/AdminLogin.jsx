@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheckIcon } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../../store/authStore';
 import KiratechLogo from '../../components/KiratechLogo';
@@ -40,12 +40,14 @@ export default function AdminLogin() {
       <div className="relative w-full max-w-md animate-scale-in">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl
-                          bg-slate-800/80 backdrop-blur-sm border border-slate-700/60 mb-4 overflow-hidden
-                          shadow-glass">
-            <KiratechLogo size={44} showText={false} />
-          </div>
-          <h1 className="text-2xl font-bold text-white">KIRATECH</h1>
+          <Link to="/" className="inline-flex flex-col items-center group">
+            <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl
+                            bg-slate-800/80 backdrop-blur-sm border border-slate-700/60 mb-4 overflow-hidden
+                            shadow-glass group-hover:border-blue-500/60 transition-colors">
+              <KiratechLogo size={44} showText={false} linkTo={false} />
+            </div>
+            <h1 className="text-2xl font-bold text-white group-hover:text-blue-300 transition-colors">KIRATECH</h1>
+          </Link>
           <div className="flex items-center justify-center gap-2 mt-2">
             <ShieldCheckIcon className="h-4 w-4 text-blue-400" />
             <span className="text-sm text-blue-400 font-semibold tracking-widest uppercase">

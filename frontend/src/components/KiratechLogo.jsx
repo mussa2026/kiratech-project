@@ -1,23 +1,26 @@
+import { Link } from 'react-router-dom';
+
 /**
  * KIRATECH Logo Component
- * Recreates the teal vortex/swirl symbol with the KIRATECH wordmark.
+ * Clicking the logo always navigates home (or to `linkTo` if specified).
  * Props:
  *   size      — pixel size of the icon mark (default 32)
  *   showText  — whether to show "KIRATECH" wordmark beside/below the mark (default true)
  *   layout    — "row" (icon + text side by side) | "col" (icon above text)
- *   textColor — Tailwind class for the text color (default auto based on context)
  *   className — extra classes on the wrapper
+ *   linkTo    — destination path (default "/"); pass false to disable the link
  */
 export default function KiratechLogo({
   size = 32,
   showText = true,
   layout = 'row',
   className = '',
+  linkTo = '/',
 }) {
   const isRow = layout === 'row';
 
-  return (
-    <div
+  const inner = (
+    <span
       className={`inline-flex ${isRow ? 'items-center gap-2' : 'flex-col items-center gap-1'} ${className}`}
     >
       {/* ── Vortex SVG mark ── */}
@@ -99,6 +102,19 @@ export default function KiratechLogo({
           KIRATECH
         </span>
       )}
-    </div>
+    </span>
+  );
+
+  // Wrap in Link unless linkTo is explicitly false
+  if (linkTo === false) return inner;
+
+  return (
+    <Link
+      to={linkTo}
+      className="inline-flex hover:opacity-80 active:scale-95 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 rounded-lg"
+      aria-label="KIRATECH — Go to home"
+    >
+      {inner}
+    </Link>
   );
 }
