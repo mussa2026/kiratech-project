@@ -62,14 +62,28 @@ app.disable('x-powered-by');
 
 // ─── 4. CORS — explicit allowlist ─────────────────────────────────────────────
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:3000',
   'http://localhost:3000',
+  'http://localhost:5173',
 ];
+
+// Add CLIENT_URL(s) from env — supports comma-separated list for multiple origins
+if (process.env.CLIENT_URL) {
+  process.env.CLIENT_URL.split(',').forEach(u => {
+    const trimmed = u.trim();
+    if (trimmed && !allowedOrigins.includes(trimmed)) allowedOrigins.push(trimmed);
+  });
+}
+
+// Auto-allow any *.onrender.com origin so Render previews always work
+const onrenderPattern = /^https:\/\/[a-zA-Z0-9-]+\.onrender\.com$/;
+
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (Postman, mobile apps)
+    // Allow requests with no origin (Postman, mobile apps, same-origin)
     if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
+    // Allow any Render.com subdomain (covers frontend1, frontend2, etc.)
+    if (onrenderPattern.test(origin)) return cb(null, true);
     cb(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,

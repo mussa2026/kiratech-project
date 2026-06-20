@@ -1,16 +1,38 @@
 import axios from 'axios';
 
-// In production (Render), VITE_API_URL is set to the backend Render URL.
+// In production (Render), VITE_API_URL must be set to the backend Render URL.
 // In development, the Vite proxy forwards /api → localhost:5000.
 const baseURL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api';
 
+if (import.meta.env.DEV) {
+  console.log('[api] baseURL:', baseURL);
+}
+
 const api = axios.create({
   baseURL,
-  timeout: 20000,
+  timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: false,
 });
+
+// Request interceptor — attach token if present
+api.interceptors.request.use(
+  (config) => {
+    try {
+      const stored = localStorage.getItem('kiratech-auth');
+      if (stored) {
+        const { token } = JSON.parse(stored);
+        if (token) config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch (_) {
+      // ignore parse errors
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // Response interceptor — redirect to correct login page on 401
 api.interceptors.response.use(
