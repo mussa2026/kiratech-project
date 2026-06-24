@@ -93,7 +93,10 @@ services:
         name: Cache-Control
         value: public, max-age=31536000, immutable
     routes:
-      # SPA — all routes serve index.html
+      # SPA fallback — ALL paths serve index.html so React Router handles them
+      - type: rewrite
+        source: /assets/*
+        destination: /assets/:splat
       - type: rewrite
         source: /*
         destination: /index.html
