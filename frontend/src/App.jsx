@@ -30,6 +30,7 @@ import TechnicianDashboard from './pages/technician/Dashboard';
 import TechnicianTasks from './pages/technician/Tasks';
 import TaskDetail from './pages/technician/TaskDetail';
 import TechnicianProfile from './pages/technician/Profile';
+import TechnicianChat from './pages/technician/Chat';
 
 // Admin Dashboard
 import AdminLayout from './layouts/AdminLayout';
@@ -113,6 +114,7 @@ export default function App() {
           <Route index element={<TechnicianDashboard />} />
           <Route path="tasks" element={<TechnicianTasks />} />
           <Route path="tasks/:id" element={<TaskDetail />} />
+          <Route path="chat" element={<TechnicianChat />} />
           <Route path="profile" element={<TechnicianProfile />} />
         </Route>
       </Route>

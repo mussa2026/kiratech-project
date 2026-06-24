@@ -1,25 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   HomeIcon, ClipboardDocumentCheckIcon, UserCircleIcon,
-  ArrowRightOnRectangleIcon, Bars3Icon,
+  ArrowRightOnRectangleIcon, Bars3Icon, ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
 import KiratechLogo from '../components/KiratechLogo';
 import ThemeToggle from '../components/ThemeToggle';
 import toast from 'react-hot-toast';
+import api from '../lib/api';
 
 const navItems = [
   { name: 'Dashboard', href: '/technician',         icon: HomeIcon },
   { name: 'My Tasks',  href: '/technician/tasks',   icon: ClipboardDocumentCheckIcon },
+  { name: 'Team Chat', href: '/technician/chat',    icon: ChatBubbleLeftRightIcon, chatBadge: true },
   { name: 'Profile',   href: '/technician/profile', icon: UserCircleIcon },
 ];
 
 export default function TechnicianLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { user, logout } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Fetch unread chat count on mount and every 30 seconds
+  useEffect(() => {
+    let active = true;
+    const fetchUnread = async () => {
+      try {
+        const { data } = await api.get('/technician/chat/unread-count');
+        if (active) setUnreadCount(data.count || 0);
+      } catch {
+        // non-critical — ignore errors
+      }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => { active = false; clearInterval(interval); };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -59,7 +78,8 @@ export default function TechnicianLayout() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         {navItems.map((item) => {
-          const active = location.pathname === item.href;
+          const active = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
+          const badge = item.chatBadge && unreadCount > 0 ? unreadCount : null;
           return (
             <Link
               key={item.href}
@@ -71,8 +91,13 @@ export default function TechnicianLayout() {
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700/60 dark:hover:text-gray-100'
               }`}
             >
-              <item.icon className="h-5 w-5" />
-              {item.name}
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              <span className="flex-1">{item.name}</span>
+              {badge && (
+                <span className="h-5 min-w-5 px-1.5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
             </Link>
           );
         })}

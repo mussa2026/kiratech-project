@@ -195,6 +195,7 @@ app.use('/api/auth/resend-otp',  otpLimiter);
 app.use('/api/auth/verify-otp',  otpLimiter);
 app.use('/api/auth',             authLimiter, authRoutes);
 app.use('/api/user',             userRoutes);
+app.use('/api/technician/chat',  require('./routes/technicianChat'));
 app.use('/api/technician',       technicianRoutes);
 app.use('/api/admin',            adminRoutes);
 app.use('/api/services',         serviceRoutes);
