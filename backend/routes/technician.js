@@ -34,13 +34,22 @@ router.use(authenticate, requireVerified, authorize('technician', 'admin'));
  */
 router.get('/profile', async (req, res) => {
   try {
-    const profile = await Technician.findOne({
+    let profile = await Technician.findOne({
       where: { userId: req.user.id },
       include: [{ model: User, as: 'user', attributes: { exclude: ['password', 'verificationToken', 'resetPasswordToken'] } }],
     });
-    if (!profile) return res.status(404).json({ error: 'Technician profile not found' });
+    // Auto-create profile if missing (e.g. account created via DB or import)
+    if (!profile) {
+      const empId = `KT-TECH-${Date.now().toString().slice(-5)}`;
+      await Technician.create({ userId: req.user.id, employeeId: empId, availability: 'available', skills: [] });
+      profile = await Technician.findOne({
+        where: { userId: req.user.id },
+        include: [{ model: User, as: 'user', attributes: { exclude: ['password', 'verificationToken', 'resetPasswordToken'] } }],
+      });
+    }
     res.json({ profile });
   } catch (err) {
+    console.error('Profile fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
@@ -78,13 +87,27 @@ router.get('/profile', async (req, res) => {
  */
 router.put('/profile', async (req, res) => {
   try {
-    const profile = await Technician.findOne({ where: { userId: req.user.id } });
-    if (!profile) return res.status(404).json({ error: 'Profile not found' });
+    let profile = await Technician.findOne({ where: { userId: req.user.id } });
+    // Auto-create if missing
+    if (!profile) {
+      const empId = `KT-TECH-${Date.now().toString().slice(-5)}`;
+      profile = await Technician.create({ userId: req.user.id, employeeId: empId, availability: 'available', skills: [] });
+    }
     const allowed = ['specialization', 'skills', 'bio', 'experience', 'availability'];
     const updates = Object.fromEntries(Object.entries(req.body).filter(([k]) => allowed.includes(k)));
+    // Convert experience to integer if provided
+    if (updates.experience !== undefined) {
+      updates.experience = updates.experience !== '' ? parseInt(updates.experience, 10) || null : null;
+    }
     await profile.update(updates);
-    res.json({ profile, message: 'Profile updated' });
+    // Return with user included
+    const updated = await Technician.findOne({
+      where: { userId: req.user.id },
+      include: [{ model: User, as: 'user', attributes: { exclude: ['password', 'verificationToken', 'resetPasswordToken'] } }],
+    });
+    res.json({ profile: updated, message: 'Profile updated successfully' });
   } catch (err) {
+    console.error('Profile update error:', err);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
@@ -116,8 +139,12 @@ router.put('/profile', async (req, res) => {
  */
 router.get('/dashboard-stats', async (req, res) => {
   try {
-    const tech = await Technician.findOne({ where: { userId: req.user.id } });
-    if (!tech) return res.status(404).json({ error: 'Profile not found' });
+    let tech = await Technician.findOne({ where: { userId: req.user.id } });
+    if (!tech) {
+      // Auto-create profile so technician can use the portal
+      const empId = `KT-TECH-${Date.now().toString().slice(-5)}`;
+      tech = await Technician.create({ userId: req.user.id, employeeId: empId, availability: 'available', skills: [] });
+    }
     const [total, pending, inProgress, completed] = await Promise.all([
       ServiceRequest.count({ where: { technicianId: tech.id } }),
       ServiceRequest.count({ where: { technicianId: tech.id, status: 'assigned' } }),
