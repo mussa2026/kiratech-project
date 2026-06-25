@@ -203,9 +203,36 @@ app.use('/api/requests',         requestRoutes);
 app.use('/api/notifications',    notificationRoutes);
 app.use('/api/payments',         paymentRoutes);
 
-// ─── 14. Health check — minimal info leak ────────────────────────────────────
+// ─── 14. Health check + debug endpoint ───────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Debug endpoint — shows DB status and env var presence (no secrets exposed)
+app.get('/api/debug', async (req, res) => {
+  const { sequelize: sq } = require('./models');
+  let dbStatus = 'unknown';
+  let dbError  = null;
+  try {
+    await sq.authenticate();
+    dbStatus = 'connected';
+  } catch (e) {
+    dbStatus = 'FAILED';
+    dbError  = e.message;
+  }
+  res.json({
+    nodeEnv:    process.env.NODE_ENV,
+    dbHost:     process.env.DB_HOST     || 'NOT SET',
+    dbPort:     process.env.DB_PORT     || 'NOT SET',
+    dbName:     process.env.DB_NAME     || 'NOT SET',
+    dbUser:     process.env.DB_USER     || 'NOT SET',
+    dbPassword: process.env.DB_PASSWORD ? '***SET***' : 'NOT SET',
+    dbSsl:      process.env.DB_SSL      || 'NOT SET',
+    dbStatus,
+    dbError,
+    jwtSecret:  process.env.JWT_SECRET  ? '***SET***' : 'NOT SET',
+    adminEmail: process.env.ADMIN_EMAIL || 'NOT SET',
+  });
 });
 
 // ─── 15. Contact form — with sanitization ────────────────────────────────────
@@ -280,14 +307,15 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// ─── 17. Global error handler — no stack traces in production ─────────────────
+// ─── 17. Global error handler — shows message to help diagnose production issues ──
 app.use((err, req, res, next) => {
   console.error(`[${req.requestId}]`, err);
   if (err.message?.includes('CORS')) {
     return res.status(403).json({ error: 'CORS policy violation' });
   }
+  // Show real error message (remove isProd guard temporarily for debugging)
   res.status(err.status || 500).json({
-    error: isProd ? 'Internal server error' : err.message,
+    error: err.message || 'Internal server error',
   });
 });
 

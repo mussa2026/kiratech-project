@@ -79,7 +79,7 @@ router.post(
       });
     } catch (err) {
       console.error('Register error:', err);
-      res.status(500).json({ error: 'Registration failed' });
+      res.status(500).json({ error: err.message || 'Registration failed' });
     }
   }
 );
@@ -277,7 +277,6 @@ router.post(
         recordFailedLogin(email);
         return res.status(401).json({ error: 'Invalid email or password' });
       }
-
       // Successful login — clear failed attempts
       clearLoginAttempts(email);
       await user.update({ lastLogin: new Date() });
@@ -289,7 +288,8 @@ router.post(
       );
       res.json({ token, user: user.toSafeObject(), message: 'Login successful' });
     } catch (err) {
-      res.status(500).json({ error: 'Login failed' });
+      console.error('Login error:', err);
+      res.status(500).json({ error: err.message || 'Login failed' });
     }
   }
 );
