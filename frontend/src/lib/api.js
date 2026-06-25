@@ -1,10 +1,38 @@
 import axios from 'axios';
 
-// In production (Render), VITE_API_URL must be set to the backend Render URL.
-// In development, the Vite proxy forwards /api → localhost:5000.
-const baseURL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api';
+// ── Determine API base URL ────────────────────────────────────────────────────
+// Priority:
+//   1. VITE_API_URL env var (set in Render → Environment)
+//   2. Auto-detect: if running on kiratech-frontend.onrender.com,
+//      try kiratech-backend.onrender.com (common naming pattern)
+//   3. Dev fallback: Vite proxy /api → localhost:5000
+
+function getBaseURL() {
+  // 1. Explicit env var (always preferred)
+  if (import.meta.env.VITE_API_URL) {
+    return `${import.meta.env.VITE_API_URL}/api`;
+  }
+
+  // 2. Auto-detect from hostname (production on Render)
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+
+    // kiratech-frontend.onrender.com  → kiratech-backend.onrender.com
+    // kiratech-frontend1.onrender.com → kiratech-backend.onrender.com
+    if (host.includes('onrender.com')) {
+      // Replace any frontend variant with backend
+      const backendHost = host
+        .replace('kiratech-frontend1', 'kiratech-backend')
+        .replace('kiratech-frontend', 'kiratech-backend');
+      return `https://${backendHost}/api`;
+    }
+  }
+
+  // 3. Dev: Vite proxy handles /api → localhost:5000
+  return '/api';
+}
+
+const baseURL = getBaseURL();
 
 if (import.meta.env.DEV) {
   console.log('[api] baseURL:', baseURL);
@@ -17,7 +45,7 @@ const api = axios.create({
   withCredentials: false,
 });
 
-// Request interceptor — attach token if present
+// Request interceptor — attach JWT token if present
 api.interceptors.request.use(
   (config) => {
     try {
@@ -26,15 +54,13 @@ api.interceptors.request.use(
         const { token } = JSON.parse(stored);
         if (token) config.headers['Authorization'] = `Bearer ${token}`;
       }
-    } catch (_) {
-      // ignore parse errors
-    }
+    } catch (_) { /* ignore */ }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — redirect to correct login page on 401
+// Response interceptor — handle 401 → redirect to correct login page
 api.interceptors.response.use(
   (response) => response,
   (error) => {
