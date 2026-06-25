@@ -31,7 +31,7 @@ services:
         value: 7d
       # Frontend URL (update after deploying frontend)
       - key: CLIENT_URL
-        sync: false
+        value: https://kiratech-frontend.onrender.com
       # Email
       - key: EMAIL_HOST
         value: smtp.gmail.com
@@ -102,8 +102,8 @@ services:
         source: /*
         destination: /index.html
     envVars:
-      # Set this to your backend Render URL after backend deploys
+      # Backend Render URL — confirmed live at kiratech-backend-pic6.onrender.com
       - key: VITE_API_URL
-        sync: false
+        value: https://kiratech-backend-pic6.onrender.com
       - key: VITE_STRIPE_PUBLISHABLE_KEY
         sync: false

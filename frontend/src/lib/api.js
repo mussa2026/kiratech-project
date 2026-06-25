@@ -8,7 +8,7 @@ import axios from 'axios';
 //   3. Dev fallback: Vite proxy /api → localhost:5000
 
 function getBaseURL() {
-  // 1. Explicit env var (always preferred)
+  // 1. Explicit env var (always preferred — set in Render → Environment)
   if (import.meta.env.VITE_API_URL) {
     return `${import.meta.env.VITE_API_URL}/api`;
   }
@@ -16,15 +16,9 @@ function getBaseURL() {
   // 2. Auto-detect from hostname (production on Render)
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-
-    // kiratech-frontend.onrender.com  → kiratech-backend.onrender.com
-    // kiratech-frontend1.onrender.com → kiratech-backend.onrender.com
     if (host.includes('onrender.com')) {
-      // Replace any frontend variant with backend
-      const backendHost = host
-        .replace('kiratech-frontend1', 'kiratech-backend')
-        .replace('kiratech-frontend', 'kiratech-backend');
-      return `https://${backendHost}/api`;
+      // Hardcoded backend URL for this deployment
+      return 'https://kiratech-backend-pic6.onrender.com/api';
     }
   }
 
