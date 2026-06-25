@@ -298,6 +298,59 @@ sequelize.authenticate()
   .then(() => { console.log('✅ Database connected'); return sequelize.sync({ alter: isProd ? false : true }); })
   .then(async () => {
     console.log('✅ Database synced');
+
+    // ── Auto-seed in production (idempotent — safe to run every startup) ──────
+    if (isProd) {
+      try {
+        const { Service, User } = require('./models');
+
+        const services = [
+          { name: 'Computer Maintenance & Troubleshooting', description: 'Full computer diagnosis, cleaning, performance optimization and repair.', category: 'standard', icon: 'computer', basePrice: 25000, estimatedDuration: '1-3 hours', sortOrder: 1 },
+          { name: 'Printer Repair & Services', description: 'Printer repair, installation, driver setup, cartridge replacement, paper jam fix.', category: 'standard', icon: 'printer', basePrice: 20000, estimatedDuration: '1-2 hours', sortOrder: 2 },
+          { name: 'Mobile Phone Repair', description: 'Screen replacement, battery swap, charging port repair, software flashing, virus removal.', category: 'standard', icon: 'phone', basePrice: 15000, estimatedDuration: '1-4 hours', sortOrder: 3 },
+          { name: 'Network Installation & WiFi Setup', description: 'Home and office network setup, router config, WiFi extenders, LAN cabling.', category: 'standard', icon: 'wifi', basePrice: 40000, estimatedDuration: '2-4 hours', sortOrder: 4 },
+          { name: 'Data Recovery & Cloud Services', description: 'Recovery of lost, deleted or corrupted files from HDD, SSD, USB drives, SD cards.', category: 'standard', icon: 'cloud', basePrice: 50000, estimatedDuration: '2-8 hours', sortOrder: 5 },
+          { name: 'Software Installation & Updates', description: 'Windows 10/11, Microsoft Office, Adobe Suite, antivirus, driver updates.', category: 'standard', icon: 'download', basePrice: 18000, estimatedDuration: '1-2 hours', sortOrder: 6 },
+          { name: 'Hardware Upgrade Services', description: 'RAM upgrade, HDD to SSD migration, GPU installation, CPU upgrade, PSU replacement.', category: 'standard', icon: 'cpu', basePrice: 30000, estimatedDuration: '1-3 hours', sortOrder: 7 },
+          { name: 'Remote Desktop Support', description: 'Remote support via AnyDesk, TeamViewer, RustDesk for Windows, Mac, Linux.', category: 'premium', icon: 'monitor', basePrice: 12000, estimatedDuration: '30 min - 2 hours', sortOrder: 8 },
+          { name: 'On-Call Priority Support', description: 'Dedicated on-call technician on standby for urgent IT emergencies.', category: 'premium', icon: 'headphones', basePrice: 75000, estimatedDuration: 'As needed', sortOrder: 9 },
+          { name: 'Live Service Tracking', description: 'Real-time live tracking of your service progress.', category: 'premium', icon: 'map', basePrice: 0, estimatedDuration: 'During service', sortOrder: 10 },
+          { name: 'Cloud Backup & Synchronization', description: 'Automated backup setup for Google Drive, OneDrive, AWS S3, Dropbox.', category: 'premium', icon: 'sync', basePrice: 60000, estimatedDuration: '2-6 hours', sortOrder: 11 },
+          { name: 'Web Hosting & Domain Services', description: 'Domain registration, hosting setup, SSL certificates, WordPress installation.', category: 'premium', icon: 'globe', basePrice: 100000, estimatedDuration: '1-3 days', sortOrder: 12 },
+        ];
+
+        let seeded = 0;
+        for (const svc of services) {
+          const [, created] = await Service.findOrCreate({ where: { name: svc.name }, defaults: svc });
+          if (created) seeded++;
+        }
+        if (seeded > 0) console.log(`✅ Auto-seeded ${seeded} new services`);
+
+        // Ensure admin account exists
+        const adminEmail = process.env.ADMIN_EMAIL || 'robertcharles088@gmail.com';
+        const [, adminCreated] = await User.findOrCreate({
+          where: { email: adminEmail },
+          defaults: {
+            name:       process.env.ADMIN_NAME     || 'Robert Charles (KIRATECH Admin)',
+            email:      adminEmail,
+            password:   process.env.ADMIN_PASSWORD || 'Admin@123456',
+            role:       'admin',
+            isVerified: true,
+            isActive:   true,
+          },
+        });
+        if (adminCreated) {
+          console.log(`✅ Admin account created: ${adminEmail}`);
+        } else {
+          console.log(`ℹ️  Admin account ready: ${adminEmail}`);
+        }
+      } catch (seedErr) {
+        // Non-fatal — log but don't crash the server
+        console.warn('⚠️  Auto-seed warning:', seedErr.message);
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     await verifyEmailConnection();
     app.listen(PORT, () => {
       console.log(`🚀 KIRATECH Server: http://localhost:${PORT}`);
