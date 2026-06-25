@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>KIRATECH</title>
+  <meta charset="UTF-8" />
+  <title>KIRATECH IT Support</title>
   <script>
-    // Redirect 404s back to index.html, preserving the path for React Router
-    var path = window.location.pathname + window.location.search;
-    sessionStorage.setItem('redirect', path);
+    // Single Page App - 404 redirect trick (works on GitHub Pages, Render, Netlify)
+    // Saves the full path to sessionStorage, then hard-redirects to /
+    // The main index.html reads it back and restores the URL for React Router
+    sessionStorage.setItem('__spa_path__', window.location.pathname + window.location.search + window.location.hash);
     window.location.replace('/');
   </script>
 </head>

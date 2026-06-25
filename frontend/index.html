@@ -9,13 +9,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-    <!-- SPA redirect restore: if 404.html redirected here, restore the original path -->
+    <!--
+      SPA Deep-Link Fix for static hosts (Render, GitHub Pages, etc.)
+      When a user directly visits /admin/login, the static host can't find that file
+      and serves 404.html instead. 404.html saves the intended path to sessionStorage
+      then redirects to /. This script reads it back and restores the URL BEFORE
+      React Router mounts, so the correct page loads.
+    -->
     <script>
-      (function() {
-        var redirect = sessionStorage.getItem('redirect');
-        if (redirect && redirect !== '/') {
-          sessionStorage.removeItem('redirect');
-          window.history.replaceState(null, null, redirect);
+      (function () {
+        var path = sessionStorage.getItem('__spa_path__');
+        if (path && path !== '/') {
+          sessionStorage.removeItem('__spa_path__');
+          window.history.replaceState(null, null, path);
         }
       })();
     </script>
