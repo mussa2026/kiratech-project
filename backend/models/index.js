@@ -2,22 +2,43 @@ const { Sequelize } = require('sequelize');
 
 const isProd = process.env.NODE_ENV === 'production';
 
+// Validate required DB env vars in production
+if (isProd) {
+  const required = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length > 0) {
+    console.error('❌ Missing required DB environment variables:', missing.join(', '));
+    console.error('   Go to Render → kiratech-backend → Environment and set these values.');
+    process.exit(1);
+  }
+}
+
+const sslConfig = isProd
+  ? (process.env.DB_SSL === 'false'
+      ? { connectTimeout: 60000 }                                          // No SSL
+      : { ssl: { rejectUnauthorized: false }, connectTimeout: 60000 })    // SSL with self-signed cert
+  : {};
+
 const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
+  process.env.DB_NAME   || 'kiratech_db',
+  process.env.DB_USER   || 'root',
+  process.env.DB_PASSWORD || '',
   {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT) || 3306,
+    host:    process.env.DB_HOST || 'localhost',
+    port:    parseInt(process.env.DB_PORT) || 3306,
     dialect: 'mysql',
     logging: isProd ? false : console.log,
-    pool: { max: isProd ? 5 : 10, min: 0, acquire: 30000, idle: 10000 },
-    ...(isProd && process.env.DB_SSL !== 'false' && {
-      dialectOptions: { ssl: { rejectUnauthorized: false }, connectTimeout: 60000 },
-    }),
-    ...(isProd && process.env.DB_SSL === 'false' && {
-      dialectOptions: { connectTimeout: 60000 },
-    }),
+    pool: {
+      max:     isProd ? 5 : 10,
+      min:     0,
+      acquire: 60000,   // longer timeout for cloud DBs
+      idle:    10000,
+    },
+    dialectOptions: sslConfig,
+    retry: {
+      match: [/ETIMEDOUT/, /ECONNRESET/, /ECONNREFUSED/, /SequelizeConnectionError/],
+      max: 3,
+    },
   }
 );
 
